@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Maybank–Perodua EV Financing Calculator</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root { 
+      --brand-yellow: #FFDD00; 
+      --brand-black: #000000; 
+      --brand-grey-100: #F7F7F7; 
+      --brand-grey-300: #E5E7EB; 
+      --brand-grey-700: #374151; 
+      --brand-yellow-50: #FFF8CC; /* light Maybank yellow for subtle backgrounds */
+    }
+    body { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 0; padding: 20px; background: var(--brand-grey-100); }
+    .container {$1 border-top: 6px solid var(--brand-yellow);}
+    h1 {$1 color: var(--brand-black);}
+    .subtitle {$1 color: var(--brand-grey-700); }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 12px; }
+    .field { display: flex; flex-direction: column; gap: 4px; }
+    label {$1 color: var(--brand-black);}
+    input, select { padding: 8px 10px; font-size: 0.95rem; border-radius: 6px; border: 1px solid #ccc; outline: none; box-sizing: border-box; }
+    input:focus, select:focus {$1 border-color: var(--brand-yellow); box-shadow: 0 0 0 3px rgba(255,221,0,0.3); }
+    .row { display: flex; align-items: center; gap: 12px; margin: 6px 0 4px; }
+    .toggle-wrap { display: inline-flex; align-items: center; gap: 8px; }
+    .hint { font-size: 0.85rem; color: #6b7280; }
+    button {$1 background: var(--brand-yellow); color: var(--brand-black); }
+    button:hover {$1 filter: brightness(0.95); }
+    .error { color: #b91c1c; font-size: 0.85rem; margin-top: 8px; }
+    .results {$1 background: var(--brand-yellow-50); }
+    .results h2 { margin-top: 0; font-size: 1rem; }
+    .result-row { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
+    .result-label { font-weight: 600; }
+    .muted { color: #6b7280; }
+    .result-group { margin-top: 10px; padding-top: 8px; border-top: 1px dashed #d1d5db; }
+    .hidden { display: none !important; }
+    details { margin-top: 16px; display: none; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.8rem; }
+    th, td { border: 1px solid #e5e7eb; padding: 4px 6px; text-align: right; white-space: nowrap; }
+    th {$1 background: var(--brand-yellow-50); color: var(--brand-black); }
+    td:first-child, th:first-child { text-align: center; }
+    .disclaimer { margin-top: 12px; font-size: 0.8rem; color: #6b7280; }
+    .pill {$1 background: var(--brand-yellow); color: var(--brand-black); }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Maybank–Perodua EV Financing Calculator</h1>
+    <p class="subtitle">
+      Estimate your monthly <strong>financing instalment</strong> and
+      <strong>combined monthly commitment</strong> (financing + battery subscription)
+      using the reducing balance method.
+    </p>
+
+    <div class="grid">
+      <div class="field">
+        <label for="amount">Financing Amount (RM)</label>
+        <input id="amount" type="number" min="0" step="0.01" placeholder="e.g. 70000" />
+      </div>
+      <div class="field">
+        <label for="rate">Profit Rate (% p.a.)</label>
+        <input id="rate" type="number" min="0" step="0.01" placeholder="e.g. 3.50" />
+      </div>
+      <div class="field">
+        <label for="tenure">Tenure</label>
+        <input id="tenure" type="number" min="1" step="1" placeholder="e.g. 9" />
+      </div>
+      <div class="field">
+        <label for="tenureUnit">Tenure Unit</label>
+        <select id="tenureUnit">
+          <option value="years">Years</option>
+          <option value="months">Months</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="batteryFee">Battery Subscription Fee (RM / month)</label>
+        <input id="batteryFee" type="number" min="0" step="0.01" placeholder="e.g. 350" />
+      </div>
+    </div>
+
+    <div class="row">
+      <label class="toggle-wrap">
+        <input type="checkbox" id="includeBattery" checked />
+        <span>Include battery fee in monthly commitment</span>
+      </label>
+      <span class="hint">Toggle this to show commitments <em>with</em> or <em>without</em> the battery fee.</span>
+    </div>
+
+    <button id="calculateBtn">Calculate</button>
+    <div id="error" class="error"></div>
+
+    <div id="results" class="results">
+      <h2>Monthly Commitments <span id="modePill" class="pill">With Battery</span></h2>
+      <div class="result-row">
+        <span class="result-label">Monthly Financing Instalment:</span>
+        <span id="monthlyInstalment"></span>
+      </div>
+      <div id="rowMonthlyBattery" class="result-row">
+        <span class="result-label">Monthly Battery Fee:</span>
+        <span id="monthlyBattery"></span>
+      </div>
+      <div class="result-row">
+        <span class="result-label">Combined Monthly Commitment:</span>
+        <span id="monthlyCombined"></span>
+      </div>
+
+      <div class="result-group">
+        <h2>Totals Over Full Tenure</h2>
+        <div class="result-row">
+          <span class="result-label">Total Financing Payments:</span>
+          <span id="totalFinancing"></span>
+        </div>
+        <div class="result-row">
+          <span class="result-label">Total Profit (Financing):</span>
+          <span id="totalProfit"></span>
+        </div>
+        <div id="rowTotalBattery" class="result-row">
+          <span class="result-label">Total Battery Fees:</span>
+          <span id="totalBattery"></span>
+        </div>
+        <div class="result-row">
+          <span class="result-label">Total Combined Payments:</span>
+          <span id="totalCombined"></span>
+        </div>
+        <div class="result-row">
+          <span class="result-label">Number of Months:</span>
+          <span id="totalMonths"></span>
+        </div>
+      </div>
+
+      <p class="disclaimer">
+        This calculator is for illustrative purposes only and does not constitute a financing offer.
+        Actual amounts may differ due to rounding and other factors.
+      </p>
+    </div>
+
+    <details id="scheduleSection">
+      <summary>Show Amortisation Schedule (Financing Portion Only)</summary>
+      <table id="scheduleTable">
+        <thead>
+          <tr>
+            <th>Month</th>
+            <th>Opening Balance</th>
+            <th>Instalment</th>
+            <th>Profit</th>
+            <th>Principal</th>
+            <th>Closing Balance</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </details>
+  </div>
+
+  <script>
+    function formatNumber(value) {
+      if (isNaN(value)) return "-";
+      return value.toLocaleString("en-MY", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    const includeBatteryEl = document.getElementById("includeBattery");
+    const batteryFeeEl = document.getElementById("batteryFee");
+
+    // Update UI on toggle (disable/enable battery input and show/hide rows)
+    includeBatteryEl.addEventListener("change", () => {
+      const include = includeBatteryEl.checked;
+      batteryFeeEl.disabled = !include;
+      batteryFeeEl.classList.toggle("muted", !include);
+      document.getElementById("rowMonthlyBattery").classList.toggle("hidden", !include);
+      document.getElementById("rowTotalBattery").classList.toggle("hidden", !include);
+      document.getElementById("modePill").textContent = include ? "With Battery" : "Without Battery";
+    });
+
+    document.getElementById("calculateBtn").addEventListener("click", function () {
+      const amountInput = document.getElementById("amount").value;
+      const rateInput = document.getElementById("rate").value;
+      const tenureInput = document.getElementById("tenure").value;
+      const tenureUnit = document.getElementById("tenureUnit").value;
+
+      const errorDiv = document.getElementById("error");
+      const resultsDiv = document.getElementById("results");
+      const scheduleSection = document.getElementById("scheduleSection");
+      const scheduleBody = document.querySelector("#scheduleTable tbody");
+
+      errorDiv.textContent = "";
+      resultsDiv.style.display = "none";
+      scheduleSection.style.display = "none";
+      scheduleBody.innerHTML = "";
+
+      const principal = parseFloat(amountInput);
+      const annualRate = parseFloat(rateInput);
+      const tenureValue = parseInt(tenureInput, 10);
+
+      if (isNaN(principal) || principal <= 0 || isNaN(annualRate) || annualRate < 0 || isNaN(tenureValue) || tenureValue <= 0) {
+        errorDiv.textContent = "Please enter valid positive values for financing amount, rate, and tenure.";
+        return;
+      }
+
+      const includeBattery = includeBatteryEl.checked;
+      let batteryFee = 0;
+      if (includeBattery) {
+        const batteryInput = batteryFeeEl.value;
+        batteryFee = batteryInput === "" ? 0 : parseFloat(batteryInput);
+        if (isNaN(batteryFee) || batteryFee < 0) {
+          errorDiv.textContent = "Please enter a valid battery fee (RM/month).";
+          return;
+        }
+      }
+
+      const totalMonths = tenureUnit === "years" ? tenureValue * 12 : tenureValue;
+      const monthlyRate = annualRate / 100 / 12;
+
+      let monthlyInstalment;
+      if (monthlyRate === 0) {
+        monthlyInstalment = principal / totalMonths;
+      } else {
+        const factor = Math.pow(1 + monthlyRate, -totalMonths);
+        monthlyInstalment = principal * (monthlyRate / (1 - factor));
+      }
+
+      // Amortisation schedule (financing only)
+      let balance = principal;
+      let totalProfit = 0;
+
+      for (let m = 1; m <= totalMonths; m++) {
+        const profitPortion = balance * monthlyRate;
+        const principalPortion = monthlyInstalment - profitPortion;
+        const newBalance = m === totalMonths ? 0 : balance - principalPortion;
+        totalProfit += profitPortion;
+
+        const row = document.createElement("tr");
+        const cells = [
+          m,
+          formatNumber(balance),
+          formatNumber(monthlyInstalment),
+          formatNumber(profitPortion),
+          formatNumber(principalPortion),
+          formatNumber(newBalance)
+        ];
+        cells.forEach(val => { const td = document.createElement("td"); td.textContent = val; row.appendChild(td); });
+        scheduleBody.appendChild(row);
+        balance = newBalance;
+      }
+
+      const totalFinancingPayments = monthlyInstalment * totalMonths;
+      const totalBatteryFees = batteryFee * totalMonths; // 0 when toggled off
+      const monthlyCombined = monthlyInstalment + batteryFee;
+      const totalCombinedPayments = totalFinancingPayments + totalBatteryFees;
+
+      // Set UI values
+      document.getElementById("monthlyInstalment").textContent = "RM " + formatNumber(monthlyInstalment);
+      document.getElementById("monthlyBattery").textContent = includeBattery ? ("RM " + formatNumber(batteryFee)) : "-";
+      document.getElementById("monthlyCombined").textContent = "RM " + formatNumber(monthlyCombined);
+
+      document.getElementById("totalFinancing").textContent = "RM " + formatNumber(totalFinancingPayments);
+      document.getElementById("totalProfit").textContent = "RM " + formatNumber(totalProfit);
+      document.getElementById("totalBattery").textContent = includeBattery ? ("RM " + formatNumber(totalBatteryFees)) : "-";
+      document.getElementById("totalCombined").textContent = "RM " + formatNumber(totalCombinedPayments);
+      document.getElementById("totalMonths").textContent = totalMonths.toString();
+
+      resultsDiv.style.display = "block";
+      scheduleSection.style.display = "block";
+    });
+
+    // Initialise UI to reflect default toggle state
+    includeBatteryEl.dispatchEvent(new Event('change'));
+  </script>
+</body>
+</html>
